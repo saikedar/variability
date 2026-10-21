@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capacity Simulation Exercise</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f5fa; --card:#ffffff; --ink:#15171f; --mut:#6b7280; --line:#e7e9f2;
+    --p:#4f46e5;        /* indigo  */
+    --s:#ff5d5d;        /* coral   */
+    --ok:#10b981;       /* emerald */
+    --warn:#f59e0b;
+    --v:#06b6d4; --w:#6366f1; --d:#f59e0b;   /* station colours */
+    --shadow:0 8px 30px rgba(20,23,40,.07);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif}
+  body{padding:22px 18px 60px}
+  .app{max-width:1240px;margin:0 auto;position:relative}
+  .brand{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:18px;text-align:center}
+  .brand h1{font-size:32px;margin:0;letter-spacing:-.02em;line-height:1.05}
+  .brand p{margin:3px 0 0;color:var(--mut);font-size:14.5px}
+
+  /* tab bar */
+  .tabs{display:flex;gap:8px;background:var(--card);padding:7px;border-radius:14px;
+    box-shadow:var(--shadow);margin-bottom:20px;flex-wrap:wrap}
+  .tab{flex:1 1 0;min-width:150px;border:0;background:transparent;color:var(--mut);
+    padding:14px 14px;border-radius:10px;cursor:pointer;font-size:15px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
+  .tab .n{width:22px;height:22px;border-radius:50%;background:#eef0f8;color:var(--mut);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .tab.active{background:linear-gradient(135deg,var(--p),#6d28d9);color:#fff}
+  .tab.active .n{background:rgba(255,255,255,.25);color:#fff}
+  .tab.locked{opacity:.45;cursor:not-allowed}
+  .tab.done .n{background:var(--ok);color:#fff}
+
+  .panel{display:none;animation:fade .25s ease}
+  .panel.show{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:22px;box-shadow:var(--shadow)}
+
+  /* welcome */
+  .welcome{max-width:560px;margin:10px auto;text-align:center}
+  .welcome .big{font-size:40px;margin:6px 0}
+  .welcome h2{font-size:24px;margin:0 0 6px;letter-spacing:-.02em}
+  .welcome p{color:var(--mut);line-height:1.6;font-size:14px}
+  .pw{display:flex;gap:10px;margin:22px 0 8px}
+  .pw input{flex:1;padding:14px 16px;border:1.5px solid var(--line);border-radius:11px;
+    font-size:16px;letter-spacing:3px;text-align:center;outline:none}
+  .pw input:focus{border-color:var(--p)}
+  .btn{border:0;border-radius:11px;padding:14px 22px;font-weight:700;font-size:14px;cursor:pointer}
+  .btn.p{background:var(--p);color:#fff}
+  .btn.p:hover{background:#4338ca}
+  .btn.s{background:var(--s);color:#fff}
+  .btn.ok{background:var(--ok);color:#fff}
+  .pwmsg{font-size:13px;min-height:18px;color:var(--s);font-weight:600}
+  h2.sec{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--mut);margin:0 0 14px}
+  .dist{font-size:10.5px;color:var(--mut);margin-top:6px;padding-top:7px;border-top:1px dashed var(--line);
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between} .dist .dmode{color:var(--w);font-weight:800}
+  .dist svg{flex:0 0 auto}
+  input[type=range]{width:100%;height:5px;border-radius:5px;accent-color:var(--p)}
+  .over{color:var(--s)}
+  .clock{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:1px}
+
+  .line{display:flex;align-items:stretch;gap:7px;margin:4px 0}
+  .car{width:27px;height:15px;flex:0 0 auto;color:#9aa3c4;line-height:0}
+  .car svg{width:100%;height:100%;display:block;filter:drop-shadow(0 1px 1px rgba(20,23,40,.18))}
+  .car.qd{animation:bob 1.7s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+  /* drive-through road */
+  .road{position:relative;height:28px;margin:10px 0 2px;border-radius:9px;overflow:hidden;
+    background:linear-gradient(180deg,#2c3142,#222637);border:1px solid #2c3142}
+  .road::before{content:"";position:absolute;top:50%;left:0;right:0;height:2px;transform:translateY(-50%);
+    background:repeating-linear-gradient(90deg,#ffd24a 0 16px,transparent 16px 34px);opacity:.8}
+  .road .tag{position:absolute;left:8px;top:2px;font-size:8px;letter-spacing:.07em;
+    text-transform:uppercase;color:#6b7388;font-weight:700;z-index:1}
+  .flowcar{position:absolute;width:28px;height:16px;will-change:transform;transform:translateX(-36px);line-height:0;z-index:2}
+  .flowcar svg{width:100%;height:100%;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.35))}
+  @keyframes wash{0%,100%{box-shadow:0 0 0 0 rgba(79,70,229,.0)}50%{box-shadow:0 0 0 3px rgba(79,70,229,.12)}}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+  .kpi{background:#fbfbfe;border:1px solid var(--line);border-radius:12px;padding:11px}
+  .kpi .l{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+  .kpi .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:3px}
+  .kpi .v small{font-size:11px;color:var(--mut);font-weight:600}
+
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .chartbox{background:#fbfbfe;border:1px solid var(--line);border-radius:12px;padding:12px}
+  .chartbox h3{margin:0 0 6px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+  canvas{max-height:190px}
+
+  .banner{border-radius:12px;padding:14px 17px;font-size:15px;margin-top:14px;display:none;font-weight:600}
+  .banner.show{display:block}
+  .banner.win{background:#d1fae5;color:#065f46;border:1px solid #6ee7b7}
+  .banner.hint{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+
+  .note{font-size:12.5px;color:var(--mut);line-height:1.55;margin-top:14px}
+  .note b{color:var(--ink)}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:700;margin-bottom:5px}
+  .field input,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);
+    border-radius:10px;font-size:14px;outline:none;font-family:inherit}
+  .field input:focus,.field textarea:focus{border-color:var(--p)}
+  .field textarea{resize:vertical;min-height:90px}
+  .summ{font-size:12.5px}
+  .summ table{width:100%;border-collapse:collapse}
+  .summ td{padding:6px 4px;border-bottom:1px solid var(--line)}
+  .summ td:last-child{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  .summ h4{margin:14px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--p)}
+  /* welcome detail fields */
+  .wfields{display:flex;flex-direction:column;gap:10px;margin:18px 0 6px}
+  .wfields input{width:100%;padding:13px 15px;border:1.5px solid var(--line);border-radius:11px;font-size:15px;outline:none}
+  .wfields input:focus{border-color:var(--p)}
+  /* fetched student details on Save tab */
+  .sdetails{display:flex;flex-wrap:wrap;gap:10px 28px;background:linear-gradient(135deg,#eef2ff,#f6f0ff);
+    border:1px solid #e0e3fb;border-radius:11px;padding:14px 18px;font-size:15px}
+  .sdetails span{color:var(--mut)}.sdetails b{color:var(--ink);margin-left:6px}
+  /* combined results table */
+  .bothtbl{width:100%;border-collapse:collapse;font-size:13.5px}
+  .bothtbl th,.bothtbl td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+  .bothtbl th:first-child,.bothtbl td:first-child{text-align:left;color:var(--mut);font-weight:600}
+  .bothtbl thead th{background:var(--p);color:#fff;border:0;font-weight:700;text-align:right}
+  .bothtbl thead th:first-child{text-align:left;border-radius:8px 0 0 0}.bothtbl thead th:last-child{border-radius:0 8px 0 0}
+  .bothtbl tbody tr:nth-child(even){background:#f7f8fc}
+  .bothtbl td b{font-weight:800}
+  .lockmsg{text-align:center;color:var(--mut);padding:40px 20px}
+  .lockmsg .big{font-size:38px}
+  /* scene caption */
+  .scene{display:flex;gap:12px;align-items:flex-start;background:linear-gradient(100deg,#1f2540,#2b2152);
+    color:#eef0ff;border-radius:14px;padding:15px 18px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .scene .sno{font-size:22px;font-weight:800;opacity:.85;line-height:1}
+  .scene .stx{font-size:15px;line-height:1.55}
+  .scene .stx b{color:#ffd24a}
+  /* dynamic headline */
+  .headline{display:none;font-size:15px;font-weight:600;line-height:1.55;border-radius:11px;
+    padding:12px 15px;margin-top:14px;border:1px solid var(--line)}
+  .headline.show{display:block}
+  .headline.win{background:#ecfdf5;color:#065f46;border-color:#a7f3d0}
+  .headline.miss{background:#fff7ed;color:#9a3412;border-color:#fed7aa}
+  /* cost-of-variability climax */
+  .tax{display:none;margin-top:16px;border-radius:14px;padding:18px;
+    background:linear-gradient(135deg,#fff1f2,#fef2f2);border:1px solid #fecdd3}
+  .tax.show{display:block}
+  .tax-h{font-size:15px;font-weight:800;color:#b91c1c;margin-bottom:12px}
+  .tax-row{display:grid;grid-template-columns:1.1fr 1.4fr 1fr;align-items:center;gap:8px;
+    padding:9px 0;border-bottom:1px dashed #fecdd3;font-size:13px}
+  .tax-row .tk{color:#7f1d1d;font-weight:700}
+  .tax-row .tv s{color:#9aa3c4}.tax-row .tv b{color:#15171f}
+  .tax-row .td{text-align:right;font-weight:800;color:#dc2626;font-variant-numeric:tabular-nums}
+  .tax-note{font-size:12.5px;color:#7f1d1d;line-height:1.55;margin-top:12px}
+  .tax-note i{color:#b91c1c}
+  @keyframes float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(-3deg)}}
+  body{background:radial-gradient(1200px 500px at 80% -10%,#eceafe 0,transparent 60%),
+       radial-gradient(900px 500px at 0% 0%,#fde8ee 0,transparent 55%),var(--bg)}
+  .kpi .v{transition:color .2s}
+  /* ===== HBP-replica simulator ===== */
+  .sim{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 16px 16px;box-shadow:var(--shadow);
+    border-top:4px solid transparent;background-clip:padding-box;position:relative}
+  .sim::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;border-radius:14px 14px 0 0;
+    background:linear-gradient(90deg,#06b6d4,#6366f1,#f59e0b)}
+  .toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .lcd{background:#1d2330;border-radius:8px;padding:6px 12px;min-width:94px;text-align:center;
+    font-family:'Courier New',monospace;font-weight:800;font-size:24px;color:#ff5d52;letter-spacing:1px;
+    box-shadow:inset 0 0 0 2px #000,inset 0 2px 6px rgba(0,0,0,.55)}
+  .lcd em{font-style:normal;font-size:11px;color:#ffb3ad;margin-left:3px}
+  .rbtn{color:#fff;border:0;border-radius:8px;padding:11px 16px;font-weight:700;font-size:13px;cursor:pointer;
+    box-shadow:0 2px 8px rgba(20,23,40,.18);transition:transform .1s,filter .15s}
+  .rbtn:hover{filter:brightness(1.07)}.rbtn:active{transform:translateY(1px)}.rbtn:disabled{opacity:.5;cursor:default;box-shadow:none}
+  .rbtn.go{background:linear-gradient(135deg,#16c47f,#0e9f63)}
+  .rbtn.fast{background:linear-gradient(135deg,#fb7185,#e11d48)}
+  .spdwrap{display:flex;flex-direction:column;align-items:center;font-size:10px;color:var(--mut);gap:3px}
+  .spdwrap input{width:118px;accent-color:#c62828}
+  .profitbox{margin-left:auto;background:linear-gradient(135deg,#1d2330,#2b2152);border-radius:10px;padding:10px 18px;font-size:13px;color:#c7cbe0;font-weight:600}
+  .profitbox b{font-size:23px;color:#ff7a85;margin-left:9px;font-variant-numeric:tabular-nums}
+  .profitbox b.pos{color:#4ade80}
+  .statbar{display:flex;flex-wrap:wrap;gap:7px 26px;background:linear-gradient(90deg,#eef2ff,#f6f0ff,#fff5ec);
+    border:1px solid #e7e3fb;border-radius:10px;padding:13px 18px;font-size:15px;color:#475569;margin-bottom:12px}
+  .statbar b{color:#15171f;font-variant-numeric:tabular-nums}
+  .objrow{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap}
+  .objective{font-size:14px;color:#444;flex:1;min-width:280px;line-height:1.5}.objective b{color:#7a1f1f}
+  .budget2{font-size:12px;color:var(--mut);white-space:nowrap}.budget2 b{color:var(--ink);font-variant-numeric:tabular-nums}.budget2 b.over{color:var(--s)}
+  .budgetwarn{display:none;background:#fee2e2;border:1px solid #fca5a5;color:#b91c1c;font-weight:800;
+    border-radius:10px;padding:11px 16px;font-size:15px;margin-bottom:12px;text-align:center}
+  .budgetwarn.show{display:block;animation:shake .4s}
+  .attchip{display:inline-block;background:#ede9fe;color:#5b21b6;font-weight:800;border-radius:20px;padding:3px 11px;font-size:12px;margin-bottom:5px}
+  .attchip.last{background:#fef3c7;color:#92400e}.attchip.done{background:#fee2e2;color:#b91c1c}
+  .savePrompt{display:none;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    background:linear-gradient(135deg,#ecfdf5,#eef2ff);border:1px solid #a7f3d0;border-radius:11px;
+    padding:13px 16px;margin-bottom:12px}
+  .savePrompt.show{display:flex}
+  .savePrompt .spmsg{font-size:14px;color:#065f46;font-weight:600}
+  .savePrompt .spbtn{background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:9px;
+    padding:11px 18px;font-weight:800;font-size:14px;cursor:pointer;box-shadow:var(--shadow);white-space:nowrap}
+  .savePrompt .spbtn:hover{filter:brightness(1.08)}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+  .stations{display:flex;align-items:stretch;gap:5px}
+  .drivein,.driveout{flex:0 0 42px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;color:var(--mut);gap:3px;text-align:center}
+  .drivein .ar,.driveout .ar{font-size:20px;color:#d8a72a;line-height:1}
+  .stnarrow{flex:0 0 24px;display:flex;align-items:center;justify-content:center;color:#d8a72a;font-size:22px;font-weight:800}
+  .stn{flex:1;border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;background:#fff;transition:box-shadow .2s}
+  .stn.bottleneck{box-shadow:0 0 0 2px var(--s)}
+  .stn-h{color:#fff;font-size:13.5px;font-weight:700;text-align:center;padding:10px 6px;letter-spacing:.01em}
+  .stn.s0 .stn-h{background:linear-gradient(135deg,#0891b2,#22d3ee)}
+  .stn.s1 .stn-h{background:linear-gradient(135deg,#4f46e5,#818cf8)}
+  .stn.s2 .stn-h{background:linear-gradient(135deg,#d97706,#fbbf24)}
+  .stn.s0{border-color:#a5e8f2}.stn.s1{border-color:#c7ccff}.stn.s2{border-color:#fde0a3}
+  .stn.s0 .bay{background:linear-gradient(180deg,#ecfeff,#cdf5fb)}
+  .stn.s1 .bay{background:linear-gradient(180deg,#eef1ff,#dde3ff)}
+  .stn.s2 .bay{background:linear-gradient(180deg,#fffbeb,#fdedc4)}
+  .stn.s0 .cbar>i{background:linear-gradient(90deg,#22d3ee,#06b6d4)}
+  .stn.s1 .cbar>i{background:linear-gradient(90deg,#818cf8,#4f46e5)}
+  .stn.s2 .cbar>i{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+  .stn.s0 .waiting{background:#0891b2}.stn.s1 .waiting{background:#4f46e5}.stn.s2 .waiting{background:#d97706}
+  .stn-row{display:flex;align-items:center;gap:6px;padding:10px 10px 4px;font-size:13px}
+  .stn-row .lbl{color:var(--mut)}
+  .spendbox{flex:1;border:1px solid #c9cee0;border-radius:6px;padding:7px 9px;text-align:right;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;outline:none;min-width:0}
+  .spendbox:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+  .bay{position:relative;height:62px;margin:6px 10px 2px;border-radius:8px;background:linear-gradient(180deg,#f3f5fb,#e7ebf6);display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .waiting{position:absolute;top:5px;left:5px;font-size:9px;background:#b58aa0;color:#fff;border-radius:12px;padding:2px 8px;font-weight:700}
+  .baycar{width:48px;height:27px;color:#b9c0d6;line-height:0}.baycar svg{width:100%;height:100%}
+  .baycar.busy{animation:bob 1s ease-in-out infinite}
+  .barwrap{padding:6px 10px 8px}
+  .barline{display:flex;align-items:center;gap:6px;font-size:9px;color:var(--mut);margin-top:6px}
+  .ubar,.cbar{position:relative;flex:1;height:11px;border:1px solid #c9cee0;border-radius:3px;background:#fff;overflow:hidden}
+  .ubar>i{display:block;height:100%;width:0;background:var(--p);transition:width .25s}
+  .cbar>i{display:block;height:100%;width:0;background:#9fb0d8;transition:width .15s}
+  .capval{text-align:center;font-size:13px;margin-top:7px;color:var(--mut)}.capval b{font-size:18px;color:var(--ink)}
+  .mmm{text-align:center;font-size:12px;color:var(--mut);margin-top:6px;display:flex;gap:7px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .mmm b{color:var(--ink)}.mmm .dmode{color:var(--w)}
+  .upg{font-size:9.5px;color:#7a1f1f;font-weight:600;padding:8px 10px;border-top:1px solid var(--line);background:#fbfbfe;margin-top:auto}
+  .analytics{margin-top:16px;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:2px 16px 16px;box-shadow:var(--shadow)}
+  .analytics>summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--p);padding:13px 2px;list-style:none;user-select:none}
+  .analytics>summary::-webkit-details-marker{display:none}
+  .analytics>summary .muted{color:var(--mut);font-weight:500;font-size:11px;margin-left:4px}
+  /* additions: Ch2 scoring, tax labels, reset control, blocked station */
+  .prange{font-size:10.5px;color:#9aa3c4;font-weight:500;margin-top:3px;text-align:right}
+  .tax-sub{display:block;font-size:11.5px;font-weight:600;color:#9f1239;opacity:.8;margin-top:3px}
+  .tax-row .td.up{color:#059669} .tax-row .td.muted{color:#9aa3c4;font-weight:600}
+  .baycar.blocked{animation:none;opacity:.9}
+  .footer{max-width:1240px;margin:26px auto 0;text-align:center}
+  .linkbtn{background:none;border:0;color:#9aa3c4;font-size:11.5px;cursor:pointer;text-decoration:underline;padding:6px}
+  .linkbtn:hover{color:var(--p)}
+  @media(max-width:920px){.charts{grid-template-columns:1fr}
+    .stations{flex-wrap:wrap}.stn{flex:1 1 100%}.stnarrow{display:none}.drivein,.driveout{flex:1 1 100%;flex-direction:row}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="carIcon" viewBox="0 0 64 30">
+    <path d="M3 21c0-1 .8-1.7 1.8-1.8l5-.5c1.3-3.5 3.6-7.4 7-7.7l16-.6c4.7-.2 8.1 2.3 11 5.7l6.4 2c2.9.9 4.9 2.3 5.1 5.2.1 1.6-1 2.4-2.5 2.4h-3.1a5 5 0 0 1-9.9 0H22a5 5 0 0 1-9.9 0H5c-1.2 0-2-.9-2-2.1z" fill="currentColor"/>
+    <path d="M21 12.4l11-.4c3 .1 5.4 1.7 7.4 4l-20 .3z" fill="#ffffff" opacity=".55"/>
+    <circle cx="17" cy="24" r="3.7" fill="#1b1d28"/><circle cx="17" cy="24" r="1.5" fill="#cfd4e6"/>
+    <circle cx="44" cy="24" r="3.7" fill="#1b1d28"/><circle cx="44" cy="24" r="1.5" fill="#cfd4e6"/>
+    <rect x="50" y="16" width="4" height="3" rx="1" fill="#fff3b0"/>
+  </symbol>
+</svg>
+<div class="app">
+  <div class="brand">
+    <div><h1>CAPACITY SIMULATION EXERCISE</h1></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-t="0"><span class="n">1</span> Welcome</button>
+    <button class="tab locked" data-t="1"><span class="n">2</span> Challenge 1</button>
+    <button class="tab locked" data-t="2"><span class="n">3</span> Challenge 2</button>
+    <button class="tab locked" data-t="3"><span class="n">4</span> Save Results</button>
+  </div>
+
+
+  <!-- TAB 0 : WELCOME -->
+  <div class="panel show" id="p0">
+    <div class="card welcome">
+      <h2>Enter your details to begin</h2>
+      <div class="wfields">
+        <input id="wName" placeholder="Full name" aria-label="Full name" autocomplete="off">
+        <input id="wRoll" placeholder="Roll number" aria-label="Roll number" autocomplete="off">
+        <input id="wSection" placeholder="Section" aria-label="Section" autocomplete="off">
+      </div>
+      <div class="pw">
+        <input id="pwInput" type="password" maxlength="40" placeholder="Password" aria-label="Password" autocomplete="off">
+        <button class="btn p" id="pwBtn">Enter →</button>
+      </div>
+      <div class="pwmsg" id="pwMsg"></div>
+    </div>
+  </div>
+
+  <!-- TAB 1 : CHALLENGE 1 -->
+  <div class="panel" id="p1"></div>
+  <!-- TAB 2 : CHALLENGE 2 -->
+  <div class="panel" id="p2"></div>
+
+  <!-- TAB 3 : SAVE -->
+  <div class="panel" id="p3">
+    <div id="saveLocked" class="card lockmsg">
+      <div class="big">🔒</div>
+      <h2>Complete both challenges first</h2>
+      <p>Run Challenge 1 to the optimum and complete at least one Challenge 2 day to save your results.</p>
+    </div>
+    <div id="saveReady" style="display:none">
+      <div class="card">
+        <h2 class="sec">Save your results</h2>
+        <div class="sdetails" id="sDetails"></div>
+        <div class="card summ" style="box-shadow:none;background:#fbfbfe;margin:14px 0">
+          <h4 id="sumh">Results — Challenge 1 vs Challenge 2 (best runs)</h4>
+          <table id="sumBoth" class="bothtbl"></table>
+        </div>
+        <div class="field"><label>Reflection — what did variability do to your results?</label>
+          <textarea id="sReflect" aria-label="Reflection" placeholder="2–3 lines: impact on throughput, profit, lead time, bottleneck…"></textarea></div>
+        <button class="btn ok" id="pdfBtn">⬇ Download PDF report</button>
+        <div class="pwmsg" id="saveMsg" style="color:var(--s)"></div>
+        <div id="afterSave" style="display:none;margin-top:16px;text-align:center">
+          <div style="font-size:14px;color:#065f46;font-weight:700">✅ Results saved &amp; submitted. The challenges are now locked — reattempting them requires instructor authorization.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer"><button class="linkbtn" id="resetBtn" type="button">Reset this computer for a new student (instructor)</button></div>
+<script>
+"use strict";
+/* ============ MODEL (validated against the deck) ============ */
+const STN=[{name:"Vacuum",full:"Vacuum and Trash Removal",base:36.0,rate:1.5,lowF:0.375,highF:0.125,col:"--v",ico:"🧹",up:"+1.5"},
+           {name:"Wash",  full:"Machine Wash",          base:30.0,rate:15.0,lowF:0.375,highF:0.125,col:"--w",ico:"🚿",up:"+15"},
+           {name:"Dry",   full:"Hand Dry and Windows",   base:24.0,rate:9.0, lowF:0.125,highF:0.375,col:"--d",ico:"💨",up:"+9"}];
+const REF=[1.0,0.5,1.5], BUDGET=3.0, DAY=480, DEMAND=37.5, CAPMAX=60;
+const BUF=2, ROAD=12, BACKLOG=9;
+const ARR_CV=0.25, BETA=0.45;   // reference-calibrated variability
+const MARGIN=5.0, OVERHEAD=675.0;
+/* Passwords are stored only as salted SHA-256 hashes (no plain text in the source).
+   To change one: open the browser console on this page, run  hashPw("NewPassword")
+   and paste the printed hash below. */
+const PW_SALT="capsim|";
+const PW_STUDENT_HASH="0186d98d2ba737734f0f2e1c0e7f66ae0b89bb3f22588963e1312ef5fb07e773";   // student login (Tab 1)
+const PW_INSTR_HASH="4c2a150460d304b218d40cf302ea54d4260617f95d596db4a8a7f491ceb3dee0";     // instructor override (reattempt / reset)
+function sha256(m){const K=[],H=[];let n=2,c=0;const f=x=>(x-Math.floor(x))*4294967296|0;
+  while(c<64){let p=1;for(let d=2;d*d<=n;d++)if(n%d===0){p=0;break;}if(p){if(c<8)H[c]=f(Math.pow(n,1/2));K[c++]=f(Math.cbrt(n));}n++;}
+  const b=unescape(encodeURIComponent(m)),l=b.length*8,w=[];
+  for(let i=0;i<b.length;i++)w[i>>2]|=b.charCodeAt(i)<<(24-(i%4)*8);
+  w[l>>5]|=0x80<<(24-l%32);w[((l+64>>9)<<4)+15]=l;
+  for(let i=0;i<w.length;i++)w[i]|=0;
+  const r=(x,y)=>x>>>y|x<<(32-y);
+  for(let j=0;j<w.length;j+=16){const W=w.slice(j,j+16),h=H.slice();
+    for(let i=0;i<64;i++){if(i>=16){const a=W[i-15],e=W[i-2];
+        W[i]=(W[i-16]+(r(a,7)^r(a,18)^a>>>3)+W[i-7]+(r(e,17)^r(e,19)^e>>>10))|0;}
+      const [A,B,C,D,E,F,G,Hh]=h,t1=(Hh+(r(E,6)^r(E,11)^r(E,25))+((E&F)^(~E&G))+K[i]+(W[i]|0))|0,
+        t2=((r(A,2)^r(A,13)^r(A,22))+((A&B)^(A&C)^(B&C)))|0;
+      h.unshift((t1+t2)|0);h.pop();h[4]=(h[4]+t1)|0;}
+    for(let i=0;i<8;i++)H[i]=(H[i]+h[i])|0;}
+  return H.map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');}
+function hashPw(pw){const h=sha256(PW_SALT+String(pw).trim());console.log(h);return h;}
+function checkPw(pw,hash){return sha256(PW_SALT+String(pw==null?'':pw).trim())===hash;}
+function esc(x){return String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+/* signed money / number helpers */
+function sMoney(x){return (x<0?'−$':'+$')+Math.abs(x).toFixed(0);}
+function sNum(x,d){return (x<0?'−':'+')+Math.abs(x).toFixed(d||0);}
+const NREP=25;   // Challenge 2 is scored on the average of the same 25 simulated days for every student of a version
+const css=c=>getComputedStyle(document.documentElement).getPropertyValue(c).trim();
+
+/* ---- per-student VERSIONS, keyed to last digit of roll number ---- */
+const SP_TABLE={0:[1.00,0.50,1.50],1:[0.75,0.75,1.50],2:[1.25,0.75,1.00],3:[1.50,0.50,1.00],
+  4:[1.00,1.00,1.00],5:[0.50,1.00,1.50],6:[1.25,1.00,0.75],7:[0.75,1.25,1.00],8:[1.50,0.75,0.75],9:[1.00,0.75,1.25]};
+function makeVersion(d){d=((Math.trunc(d)%10)+10)%10;
+  const T=37.5-0.5*d, rate=[STN[0].rate,STN[1].rate,STN[2].rate], s=SP_TABLE[d];
+  const base=[0,1,2].map(i=>+(T-rate[i]*s[i]).toFixed(3));
+  const hi=(d+2)%3;   // station carrying the heavy high-end variability tail (rotates)
+  return {d,T,base,spend:s,hi,
+    lowF:[0,1,2].map(i=>i===hi?0.125:0.375), highF:[0,1,2].map(i=>i===hi?0.375:0.125),
+    cars:Math.round(T*8), ceil:Math.round(40*T-675)};}
+function versionFromRoll(roll){const m=String(roll||'').match(/(\d)(?!.*\d)/);return m?+m[1]:0;}
+let VER=makeVersion(0);
+
+/* ---- Storytelling-with-data chart plugin: reference lines, focus labels ---- */
+const SWD={id:'swd',afterDatasetsDraw(chart){
+  const o=chart.options.plugins&&chart.options.plugins.swd;if(!o)return;
+  const {ctx,chartArea,scales}=chart;
+  (o.refLines||[]).forEach(l=>{const sc=scales[l.axis];if(!sc)return;const y=sc.getPixelForValue(l.value);
+    if(y<chartArea.top||y>chartArea.bottom)return;ctx.save();ctx.strokeStyle=l.color;ctx.setLineDash([5,4]);ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.moveTo(chartArea.left,y);ctx.lineTo(chartArea.right,y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=l.color;ctx.font='600 9.5px -apple-system,sans-serif';ctx.textAlign=l.align||'left';
+    ctx.fillText(l.label,l.align==='right'?chartArea.right-5:chartArea.left+5,l.below?y+11:y-4);ctx.restore();});
+  if(o.barLabels){const meta=chart.getDatasetMeta(0);if(meta)meta.data.forEach((bar,i)=>{
+    const v=chart.data.datasets[0].data[i];if(v==null)return;ctx.save();ctx.fillStyle='#374151';
+    ctx.font='800 11px -apple-system,sans-serif';ctx.textAlign='center';ctx.fillText(Math.round(v)+'%',bar.x,bar.y-7);ctx.restore();});}
+  if(o.endLabels){chart.data.datasets.forEach((ds,di)=>{const t=o.endLabels[di];if(!t)return;
+    const meta=chart.getDatasetMeta(di);const pt=meta.data[meta.data.length-1];if(!pt)return;ctx.save();
+    ctx.fillStyle=ds.borderColor;ctx.font='800 11px -apple-system,sans-serif';ctx.textAlign='right';
+    ctx.fillText(t,pt.x-3,pt.y-7);ctx.restore();});}
+}};
+if(window.Chart)Chart.register(SWD);
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function tri(r,lo,mode,hi){const u=r();const c=(mode-lo)/(hi-lo);
+  return u<c?lo+Math.sqrt(u*(hi-lo)*(mode-lo)):hi-Math.sqrt((1-u)*(hi-lo)*(hi-mode));}
+function cap(v){return STN.map((s,i)=>VER.base[i]+s.rate*v[i]);}
+// capacity (cars/hr) triangular bounds; spread shrinks as investment rises
+function triBounds(i,v){const c=cap(v)[i],sc=1/(1+BETA*v[i]);
+  return {cmin:c*(1-VER.lowF[i]*sc),mode:c,cmax:c*(1+VER.highF[i]*sc)};}
+
+function simulate(v,ch,seed){
+  const r=mulberry32(seed>>>0), caps=cap(v), m=caps.map(c=>60/c);
+  let t=0,na=0; const q=[[],[],[]], busy=[0,0,0], blk=[0,0,0], fin=[1e18,1e18,1e18], srv=[null,null,null];
+  let done=0,lost=0,insys=0,wa=0; const bt=[0,0,0], leads=[];
+  for(let k=0;k<BACKLOG;k++){q[0].push(0);insys++;}
+  const T=VER.T, gap=()=>(ch===1||ARR_CV<=0)?60/T:Math.max(.05,tri(r,(60/T)*(1-ARR_CV),60/T,(60/T)*(1+ARR_CV)));
+  const stime=i=>{if(ch===1)return m[i];const b=triBounds(i,v);return tri(r,60/b.cmax,60/b.mode,60/b.cmin);};
+  const F={t:[],done:[],profit:[],road:[],q:[[],[],[]],busy:[[],[],[]],blk:[[],[],[]]};
+  let ns=0; const snap=mm=>{F.t.push(mm);F.done.push(done);F.profit.push(MARGIN*done-OVERHEAD);
+    F.road.push(q[0].length+(busy[0]?1:0));for(let i=0;i<3;i++){F.q[i].push(q[i].length);F.busy[i].push(busy[i]);F.blk[i].push(blk[i]);}};
+  let g=0;
+  while(t<DAY&&g++<3e6){
+    let ek='',et=1e18,ei=-1;
+    if(na<DAY){ek='a';et=na;}
+    for(let i=0;i<3;i++)if(busy[i]&&fin[i]<et){ek='f';et=fin[i];ei=i;}
+    if(et>=1e18||et>DAY)break;
+    while(ns<=et&&ns<=DAY){snap(ns);ns++;}
+    wa+=insys*(et-t);t=et;
+    if(ek==='a'){if((busy[0]?1:0)+q[0].length<ROAD+1){q[0].push(t);insys++;}else lost++;na=t+gap();}
+    else{const i=ei,car=srv[i];
+      if(i<2){if((busy[i+1]?1:0)+q[i+1].length<BUF+1){q[i+1].push(car);busy[i]=0;srv[i]=null;}else{blk[i]=1;fin[i]=1e18;}}
+      else{done++;insys--;leads.push(t-car);busy[i]=0;srv[i]=null;}}
+    for(let i=0;i<2;i++)if(blk[i]&&(busy[i+1]?1:0)+q[i+1].length<BUF+1){q[i+1].push(srv[i]);srv[i]=null;blk[i]=0;busy[i]=0;}
+    for(let i=0;i<3;i++)if(!busy[i]&&!blk[i]&&q[i].length){srv[i]=q[i].shift();busy[i]=1;const d=stime(i);fin[i]=t+d;bt[i]+=d;}
+  }
+  while(ns<=DAY){snap(ns);ns++;}
+  const util=bt.map(b=>b/DAY*100), lead=leads.length?leads.reduce((a,b)=>a+b,0)/leads.length:0;
+  const thr=done/(DAY/60), bn=util.indexOf(Math.max(...util));
+  return{caps,done,lost,util,lead,wip:wa/DAY,thr,profit:MARGIN*done-OVERHEAD,bnIdx:bn,frames:F};
+}
+/* Common random numbers: the k-th simulated day uses the same seed for everyone on a version,
+   so two allocations are always compared on identical arrivals and machine behaviour. */
+function seedFor(k){return ((VER.d+1)*1000003+k*7919)>>>0;}
+function evaluate(v,ch){
+  if(ch===1){const r=simulate(v,1,1);return Object.assign(r,{nrep:1,pmin:r.profit,pmax:r.profit,repDone:r.done,repProfit:r.profit});}
+  const runs=[];for(let k=0;k<NREP;k++)runs.push(simulate(v,2,seedFor(k)));
+  const avg=f=>runs.reduce((a,r)=>a+f(r),0)/NREP;
+  const util=[0,1,2].map(i=>avg(r=>r.util[i]));
+  const profits=runs.map(r=>r.profit), med=profits.slice().sort((a,b)=>a-b)[Math.floor(NREP/2)];
+  const rep=runs.find(r=>r.profit===med);                  // the median day is the one we animate and chart
+  const done=avg(r=>r.done);
+  return{caps:runs[0].caps,done,lost:avg(r=>r.lost),util,lead:avg(r=>r.lead),wip:avg(r=>r.wip),
+    thr:done/(DAY/60),profit:MARGIN*done-OVERHEAD,bnIdx:util.indexOf(Math.max(...util)),
+    frames:rep.frames,nrep:NREP,pmin:Math.min(...profits),pmax:Math.max(...profits),repDone:rep.done,repProfit:rep.profit};
+}
+
+/* ============ STATE & TABS ============ */
+const state={restores:0,pwOk:false,ch1Done:false,ch2Done:false,results:{1:null,2:null},best1:null,best2:null,ch2Attempts:[],student:null,saved:false,reattemptGated:false,times:{tab1:null,tab2:null,tab3:null}};
+const MAX_ATTEMPTS=10;
+const tabsEl=document.getElementById('tabs');
+function setLock(idx,locked){const b=tabsEl.querySelector(`[data-t="${idx}"]`);b.classList.toggle('locked',locked);}
+function setDone(idx){tabsEl.querySelector(`[data-t="${idx}"]`).classList.add('done');}
+function showTab(idx){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',+b.dataset.t===idx));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('show',i===idx));
+  if(idx===3){refreshSave(); if(state.ch1Done&&state.ch2Done)gateReattempt();}
+  Object.values(CH).forEach(c=>c&&c.stop&&c.stop());
+}
+/* once at the results stage, the challenge tabs are locked behind the instructor override */
+function gateReattempt(){state.reattemptGated=true;setLock(1,true);setLock(2,true);}
+function enableReattempt(){
+  state.reattemptGated=false;state.saved=false;
+  state.ch2Attempts=[];state.best2=null;          // grant a fresh set of 10 Challenge-2 attempts
+  setLock(1,false);setLock(2,false);
+  const pb=document.getElementById('pdfBtn');if(pb){pb.disabled=false;pb.textContent='⬇ Download PDF report';}
+  const rf=document.getElementById('sReflect');if(rf)rf.readOnly=false;
+  const af=document.getElementById('afterSave');if(af)af.style.display='none';
+  if(CH[1]&&CH[1].apply)CH[1].apply(); if(CH[2]&&CH[2].apply)CH[2].apply();
+}
+tabsEl.addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;const t=+b.dataset.t;
+  if(b.classList.contains('locked')){
+    if(state.reattemptGated&&(t===1||t===2)){
+      const pw=window.prompt('Instructor authorization required to reattempt the challenges.\nEnter override password:');
+      if(pw==null)return;
+      if(checkPw(pw,PW_INSTR_HASH)){enableReattempt();persist();showTab(t);}
+      else window.alert('Incorrect authorization password.');
+    }
+    return;
+  }
+  showTab(t);});
+
+/* password + student details (entered once, on Welcome) */
+const pwInput=document.getElementById('pwInput'),pwMsg=document.getElementById('pwMsg');
+function tryPw(){
+  const nm=document.getElementById('wName').value.trim(),
+        rl=document.getElementById('wRoll').value.trim(),
+        sc=document.getElementById('wSection').value.trim();
+  if(!nm||!rl||!sc){pwMsg.style.color=css('--s');pwMsg.textContent='Please enter your name, roll number and section.';return;}
+  if(!checkPw(pwInput.value,PW_STUDENT_HASH)){pwMsg.style.color=css('--s');pwMsg.textContent='Incorrect password — try again.';pwInput.select();return;}
+  state.student={name:nm,roll:rl,section:sc};state.pwOk=true;
+  setLock(0,true);setLock(1,false);          // Welcome is passed — lock it, can't be revisited
+  applyVersion(versionFromRoll(rl));
+  state.times.tab1=new Date();
+  pwMsg.style.color=css('--ok');pwMsg.textContent='Welcome, '+nm+'! Opening Challenge 1…';persist();
+  setTimeout(()=>showTab(1),700);
+}
+document.getElementById('pwBtn').addEventListener('click',tryPw);
+['wName','wRoll','wSection','pwInput'].forEach(id=>document.getElementById(id)
+  .addEventListener('keydown',e=>{if(e.key==='Enter')tryPw();}));
+
+/* ============ CHALLENGE PANEL FACTORY ============ */
+const CH={};
+function buildChallenge(ch){
+  const mount=document.getElementById('p'+ch), P='c'+ch+'_';
+  const isVar=ch===2;
+  const scene=isVar
+    ? '<div class="sno">❸</div><div class="stx"><b>Variability strikes.</b> Same line, same $3M — but now cars arrive in bunches and machines stutter. Re-run your investment and watch the bottleneck <b>wander</b> and profit <b>leak</b> away. Where should the slack go?</div>'
+    : '<div class="sno">❷</div><div class="stx"><b>The line is backing up.</b> Customers are driving away because one station is the choke point. Spend your <b>$3M</b> to lift <b>every</b> station up to the day\'s demand — balance the flow and the profit follows.</div>';
+  const obj=isVar
+    ? 'Budget accordingly to maximize profit. Be aware that <b>capacity will vary</b> as the day progresses in Challenge 2 — invest to tame the stations with the widest swings.'
+    : 'Budget to maximize profit. Demand is steady all day — balance every station up to the day\'s demand rate to push the most cars through and unlock Challenge 2.';
+  const stnCard=i=>`<div class="stn s${i}" id="${P}stn${i}">
+      <div class="stn-h">${STN[i].ico} ${STN[i].full}</div>
+      <div class="stn-row"><span class="lbl">Spending:</span><input class="spendbox" id="${P}inv${i}" value="$0" inputmode="text" spellcheck="false" aria-label="Spending on ${STN[i].full}"></div>
+      <div class="bay"><span class="waiting" id="${P}wait${i}">0 cars waiting</span>
+        <div class="baycar" id="${P}srv${i}"><svg viewBox="0 0 64 30"><use href="#carIcon"/></svg></div></div>
+      <div class="barwrap">
+        <div class="barline"><span>0%</span><div class="ubar"><i id="${P}ub${i}"></i></div><span>100% Utilization</span></div>
+        <div class="barline"><span>0</span><div class="cbar"><i id="${P}cm${i}"></i></div><span>60 Capacity (cars/hr)</span></div>
+        <div class="capval"><b id="${P}cv${i}">0.0</b> cars/hr</div>
+        ${isVar?('<div class="mmm" id="'+P+'dist'+i+'"></div>'):''}
+      </div>
+      <div class="upg">📈 ${STN[i].name} Upgrade: $1M buys ${STN[i].up} cars/hr</div>
+    </div>`;
+  mount.innerHTML=`
+   <div class="scene">${scene}</div>
+   <div class="sim">
+     <div class="toolbar">
+       <div class="lcd"><span id="${P}clock">9:00</span> <em>am</em></div>
+       <button class="rbtn go" id="${P}run">Animate ▶</button>
+       <div class="spdwrap"><label>Animation Speed</label><input type="range" id="${P}spd" min="1" max="100" value="50" aria-label="Animation speed"></div>
+       <button class="rbtn fast" id="${P}fast">Get End of Day Results ▶▶</button>
+       <div class="profitbox"><span id="${P}plabel">Your Profit</span> <b id="${P}profit">-$675.00</b>${isVar?'<div class="prange" id="'+P+'prange">scored on the average of '+NREP+' identical days</div>':''}</div>
+     </div>
+     <div class="budgetwarn" id="${P}warn">⚠ Exceeded BUDGET!! — reduce total spending to $3,000,000 or less to run the day.</div>
+     <div class="statbar">
+       <span>Cycle Time: <b id="${P}sCyc">0.00</b> min/car</span>
+       <span>Profit Per Hour: <b id="${P}sPph">$0.00</b></span>
+       <span>Throughput Time: <b id="${P}sLead">0.00</b> min</span>
+       <span>Capacity Utilization: <b id="${P}sUtil">0.00%</b></span>
+     </div>
+     <div class="objrow">
+       <div class="objective"><b>Objective:</b> ${obj}</div>
+       <div class="budget2">${isVar?'<span class="attchip" id="'+P+'att">Attempt 0 / 10</span><br>':''}Budget $3,000,000 · Left <b id="${P}rem">$3,000,000</b></div>
+     </div>
+     ${isVar?'<div class="savePrompt" id="'+P+'saveprompt"><span class="spmsg"></span><button class="spbtn" id="'+P+'gotoSave">💾 Save all results (PDF) →</button></div>':''}
+     <div class="stations">
+       <div class="drivein"><span class="ar">⬊</span>Drive In</div>
+       ${stnCard(0)}<div class="stnarrow">➜</div>${stnCard(1)}<div class="stnarrow">➜</div>${stnCard(2)}
+       <div class="driveout"><span class="ar">⬈</span>Drive Out</div>
+     </div>
+     <div class="road" id="${P}road_lane"><span class="tag">drive-through</span></div>
+   </div>
+   <details class="analytics" open>
+     <summary>📊 Analysis &amp; charts<span class="muted">— storytelling-with-data view</span></summary>
+     <div class="headline" id="${P}headline"></div>
+     <div class="kpis">
+       <div class="kpi"><div class="l">Cars washed</div><div class="v" id="${P}kCars">—</div></div>
+       <div class="kpi"><div class="l">Work-in-process</div><div class="v" id="${P}kWip">—</div></div>
+       <div class="kpi"><div class="l">Bottleneck</div><div class="v" id="${P}kBn" style="font-size:15px">—</div></div>
+       <div class="kpi"><div class="l">Lost (balked)</div><div class="v" id="${P}kLost">—</div></div>
+     </div>
+     <div class="banner" id="${P}banner"></div>
+     ${isVar?'<div class="tax" id="'+P+'tax"></div>':''}
+     <div class="charts">
+       <div class="chartbox"><h3>Cumulative cars &amp; profit</h3><canvas id="${P}c1"></canvas></div>
+       <div class="chartbox"><h3>Station utilization (%)</h3><canvas id="${P}c2"></canvas></div>
+     </div>
+   </details>`;
+  const q=s=>mount.querySelector('#'+P+s);
+  let inv=[0,0,0], anim=null;
+
+  function triSVG(cmin,cmode,cmax){const W=78,H=22;const span=Math.max(cmax-cmin,.001);
+    const px=4+((cmode-cmin)/span)*(W-8);const wc=css('--w');
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`+
+      `<polygon points="4,${H-3} ${px.toFixed(1)},3 ${W-4},${H-3}" fill="${wc}26" stroke="${wc}" stroke-width="1.2"/>`+
+      `<line x1="${px.toFixed(1)}" y1="3" x2="${px.toFixed(1)}" y2="${H-3}" stroke="${wc}" stroke-width="1" stroke-dasharray="2 2"/></svg>`;}
+  function distOf(i){const b=triBounds(i,inv);return {min:b.cmin,mode:b.mode,max:b.cmax};}
+  function fmtSpend(m){return m<=1e-9?'$0':'$'+Math.round(m*1e6).toLocaleString();}
+  function parseSpend(str){let s=String(str).replace(/[$,\s]/g,'').toLowerCase();
+    const mil=s.includes('m');s=s.replace(/m/g,'');let n=parseFloat(s);if(isNaN(n))n=0;
+    const dollars=(mil||n<=3)?n*1e6:n;return Math.max(0,Math.min(2,dollars/1e6));}
+  function refresh(boxes){const caps=cap(inv);
+    inv.forEach((x,i)=>{ if(boxes)q('inv'+i).value=fmtSpend(x);
+      q('cv'+i).textContent=caps[i].toFixed(1);
+      q('cm'+i).style.width=Math.min(caps[i]/CAPMAX*100,100)+'%';});
+    if(isVar)STN.forEach((s,i)=>{const d=distOf(i);
+      q('dist'+i).innerHTML=`Min: <b>${d.min.toFixed(1)}</b>, Mode: <b class="dmode">${d.mode.toFixed(1)}</b>, Max: <b>${d.max.toFixed(1)}</b>`+triSVG(d.min,d.mode,d.max);});
+    const remD=Math.round((BUDGET-inv.reduce((a,b)=>a+b,0))*1e6);const r=q('rem');
+    r.textContent=(remD<0?'-$':'$')+Math.abs(remD).toLocaleString();r.className=remD<-1?'over':'';
+    q('warn').classList.toggle('show',overBudget());setButtons();}
+  function overBudget(){return inv.reduce((a,b)=>a+b,0) > BUDGET+1e-9;}
+  function attemptsLeft(){return MAX_ATTEMPTS-state.ch2Attempts.length;}
+  function setButtons(){const blocked=overBudget()||(isVar&&attemptsLeft()<=0);
+    q('run').disabled=blocked;q('fast').disabled=blocked;}
+  function updateAttempts(){if(!isVar)return;const n=state.ch2Attempts.length,left=MAX_ATTEMPTS-n;
+    const chip=q('att');chip.textContent=`Attempt ${n} / ${MAX_ATTEMPTS}`;
+    chip.className='attchip'+(left<=0?' done':(left<=3?' last':''));
+    if(n>=1){const sp=q('saveprompt');sp.classList.add('show');
+      sp.querySelector('.spmsg').innerHTML=left>0
+        ?`Recorded <b>${n}</b> attempt${n>1?'s':''} — <b>${left}</b> left. Best so far: <b>$${(state.best2?state.best2.profit:0).toFixed(0)}</b>.`
+        :`<b>All ${MAX_ATTEMPTS} attempts used.</b> Best result: <b>$${(state.best2?state.best2.profit:0).toFixed(0)}</b>. Save your report now.`;}
+    setButtons();}
+  STN.forEach((s,i)=>{const el=q('inv'+i);
+    el.addEventListener('input',e=>{inv[i]=parseSpend(e.target.value);refresh(false);});
+    el.addEventListener('change',()=>refresh(true));
+    el.addEventListener('blur',()=>refresh(true));
+    el.addEventListener('focus',e=>e.target.select());});
+
+  // charts
+  const tk={color:'#6b7280',font:{size:9}}, gr={color:'#eef0f8'};
+  const c1=new Chart(q('c1'),{type:'line',data:{labels:[],datasets:[
+      {label:'Cars',data:[],borderColor:css('--p'),pointRadius:0,borderWidth:2.5,yAxisID:'y'},
+      {label:'Profit $',data:[],borderColor:css('--ok'),pointRadius:0,borderWidth:2.5,yAxisID:'y1'}]},
+    options:{responsive:true,animation:false,layout:{padding:{right:14,top:8}},
+      plugins:{legend:{display:false},swd:{endLabels:['',''],refLines:[
+        {value:825,axis:'y1',color:'#16a34a',label:'Profit ceiling · $825'},
+        {value:300,axis:'y',color:'#94a3b8',label:'Max 300 cars/day'}]}},
+      scales:{x:{ticks:tk,grid:{display:false}},y:{position:'left',ticks:tk,grid:gr,suggestedMax:320},
+        y1:{position:'right',ticks:tk,grid:{display:false},suggestedMax:900}}}});
+  const c2=new Chart(q('c2'),{type:'bar',data:{labels:['Vacuum','Wash','Dry'],datasets:[{data:[0,0,0],
+      backgroundColor:['#cbd5e8','#cbd5e8','#cbd5e8'],borderRadius:6}]},
+    options:{responsive:true,animation:false,layout:{padding:{top:18}},
+      plugins:{legend:{display:false},swd:{barLabels:true,refLines:[{value:100,axis:'y',color:'#94a3b8',label:'Rated capacity · 100%'}]}},
+      scales:{y:{beginAtZero:true,max:115,ticks:tk,grid:gr},x:{ticks:{color:'#374151',font:{size:11,weight:'600'}},grid:{display:false}}}}});
+
+  const fmt=min=>{const h=9+Math.floor(min/60),m=Math.floor(min%60);return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');};
+  function clockSet(min){const hr=9+Math.floor(min/60),mm=Math.floor(min%60),ap=hr<12?'am':'pm',h12=hr>12?hr-12:hr;
+    q('clock').textContent=h12+':'+String(mm).padStart(2,'0');
+    const em=q('clock').parentElement.querySelector('em');if(em)em.textContent=ap;}
+  const PAL=['#4f46e5','#06b6d4','#f59e0b','#ff5d5d','#10b981','#8b5cf6','#ec4899','#3b82f6','#ef4444','#14b8a6'];
+  const carSVG='<svg viewBox="0 0 64 30"><use href="#carIcon"/></svg>';
+  // moving drive-through cars
+  let flowN=0, palI=0;
+  function spawnFlow(){const lane=q('road_lane');if(!lane||flowN>44)return;
+    const w=lane.clientWidth;if(!w)return;
+    const el=document.createElement('div');el.className='flowcar';
+    el.style.color=PAL[(palI++)%PAL.length];el.style.top=(2+Math.random()*8)+'px';el.innerHTML=carSVG;
+    lane.appendChild(el);flowN++;
+    const dur=(1.0+Math.random()*0.7)/Math.max(0.45,(+q('spd').value/55));
+    requestAnimationFrame(()=>{el.style.transition=`transform ${dur}s linear`;el.style.transform=`translateX(${w+36}px)`;});
+    const kill=()=>{if(el.parentNode){el.remove();flowN--;}};
+    el.addEventListener('transitionend',kill);setTimeout(kill,dur*1000+500);}
+  function clearFlow(){const lane=q('road_lane');if(lane)lane.querySelectorAll('.flowcar').forEach(e=>e.remove());flowN=0;}
+
+  function setK(id,v,sm){q(id).innerHTML=v+(sm?` <small>${sm}</small>`:'');}
+  function setProfit(p){const b=q('profit');b.textContent=(p>=0?'$':'-$')+Math.abs(p).toFixed(2);b.className=p>=0?'pos':'';}
+  function drawFrame(res,idx){const F=res.frames;
+    clockSet(F.t[idx]);
+    setProfit(F.profit[idx]);
+    const hrs=Math.max(F.t[idx]/60,.0001),done=F.done[idx];
+    q('sCyc').textContent=done>0?(60*hrs/done).toFixed(2):'0.00';
+    q('sPph').textContent='$'+(F.profit[idx]/hrs).toFixed(2);
+    setK('kCars',done);
+    for(let i=0;i<3;i++){const ql=F.q[i][idx],bu=F.busy[i][idx],bl=F.blk[i][idx];
+      q('wait'+i).textContent=ql+(ql===1?' car waiting':' cars waiting');
+      const sv=q('srv'+i);sv.className='baycar'+(bl?' blocked':(bu?' busy':''));
+      sv.style.color=bl?css('--s'):(bu?css(STN[i].col):'#b9c0d6');}}
+
+  function showFinal(res){
+    setProfit(res.profit);
+    if(isVar){const pl=q('plabel');if(pl)pl.textContent='Avg profit · '+res.nrep+' days';
+      const pr=q('prange');if(pr)pr.textContent='range $'+res.pmin.toFixed(0)+' to $'+res.pmax.toFixed(0)+' · '+(res.profit/VER.ceil*100).toFixed(0)+'% of ceiling';}
+    q('sCyc').textContent=res.thr>0?(60/res.thr).toFixed(2):'0.00';
+    q('sPph').textContent='$'+(res.profit/8).toFixed(2);
+    q('sLead').textContent=res.lead.toFixed(2);
+    q('sUtil').textContent=Math.min(100,Math.max(...res.util)).toFixed(2)+'%';
+    setK('kCars',isVar?res.done.toFixed(1):res.done,isVar?'avg':'');setK('kWip',res.wip.toFixed(1));setK('kLost',Math.round(res.lost));
+    q('kBn').textContent=STN[res.bnIdx].name+' ('+res.caps[res.bnIdx].toFixed(1)+')';
+    for(let i=0;i<3;i++){q('ub'+i).style.width=Math.min(res.util[i],100)+'%';
+      q('ub'+i).style.background=i===res.bnIdx?css('--s'):css(STN[i].col);
+      q('stn'+i).classList.toggle('bottleneck',i===res.bnIdx);}
+    c1.data.labels=res.frames.t.map(fmt);c1.data.datasets[0].data=res.frames.done;
+    c1.data.datasets[1].data=res.frames.profit.map(p=>+p.toFixed(0));
+    c1.options.plugins.swd.endLabels=[res.repDone+' cars',(res.repProfit>=0?'$':'-$')+Math.abs(res.repProfit).toFixed(0)];
+    setRefs();
+    c1.update();
+    c2.data.datasets[0].data=res.util.map(u=>+u.toFixed(1));
+    c2.data.datasets[0].backgroundColor=res.util.map((u,i)=>i===res.bnIdx?css('--s'):'#cbd5e8');
+    c2.update();
+    const t1=q('c1').closest('.chartbox').querySelector('h3');
+    t1.textContent=isVar
+      ?`Median day shown · ${res.nrep}-day avg ${(res.profit>=0?'$':'-$')+Math.abs(res.profit).toFixed(0)} = ${(res.profit/VER.ceil*100).toFixed(0)}% of the $${VER.ceil} ceiling`
+      :`Earned ${(res.profit>=0?'$':'-$')+Math.abs(res.profit).toFixed(0)} of the $${VER.ceil} ceiling`;
+    const t2=q('c2').closest('.chartbox').querySelector('h3');
+    t2.textContent=`${STN[res.bnIdx].name} is the bottleneck — ${res.caps[res.bnIdx].toFixed(1)}/hr`;
+  }
+  function setRefs(){c1.options.plugins.swd.refLines=[{value:VER.ceil,axis:'y1',color:'#16a34a',label:'Profit ceiling · $'+VER.ceil},
+      {value:VER.cars,axis:'y',color:'#94a3b8',label:'Max '+VER.cars+' cars/day',below:true}];}
+  function captureCharts(){return{cumul:c1.toBase64Image(),util:c2.toBase64Image()};}
+  function record(res,label){
+    const dist=isVar?STN.map((s,i)=>{const d=distOf(i);return [d.min,d.mode,d.max];}):null;
+    const rec={ch,inv:inv.slice(),caps:res.caps,cars:res.done,profit:res.profit,thr:res.thr,
+      cyc:res.thr>0?60/res.thr:0,lead:res.lead,wip:res.wip,util:res.util,lost:res.lost,
+      bn:STN[res.bnIdx].name,dist,charts:captureCharts(),label,
+      pct:res.profit/VER.ceil*100,nrep:res.nrep,pmin:res.pmin,pmax:res.pmax};
+    state.results[ch]=rec; return rec;}
+
+  function head(cls,html){const h=q('headline');h.className='headline show '+cls;h.innerHTML=html;}
+  function checkWin(res){
+    if(isVar){const prev=sameAsTried();
+      if(prev){const b=q('banner');b.className='banner hint show';
+        b.innerHTML=`You already tried this allocation (same 25 days, same result: <b>$${prev.profit.toFixed(0)}</b>). <b>Not counted</b> as a new attempt.`;return;}}
+    const banner=q('banner'), bn=STN[res.bnIdx].name, bc=res.caps[res.bnIdx];
+    if(ch===1){
+      const allMet=res.caps.every(c=>c>=VER.T-0.05), good=res.profit>=VER.ceil-45;
+      if(allMet&&good){
+        if(!state.best1||res.profit>state.best1.profit)state.best1=record(res,'optimal');
+        else record(res,'optimal');
+        state.ch1Done=true;setLock(2,false);setDone(1);
+        if(!state.times.tab2)state.times.tab2=new Date();
+        banner.className='banner win show';
+        banner.innerHTML=`🎉 Optimal reached — line balanced at ${VER.T.toFixed(1)} cars/hr! <b>Challenge 2 is now unlocked.</b>`;
+        head('win',`🎯 <b>Balanced.</b> Every station runs at ${VER.T.toFixed(1)}/hr and 100% utilised — you washed <b>${res.done} cars</b> for <b>$${res.profit.toFixed(0)}</b>. No allocation beats this. The small gap to the $${VER.ceil} ceiling is the few cars still in the line at closing time.`);
+        maybeUnlockSave();
+        persist();
+      }else{
+        record(res,'attempt');
+        banner.className='banner hint show';
+        banner.innerHTML=`Not optimal yet. <b>${bn}</b> is your bottleneck at ${bc.toFixed(1)} cars/hr — every station must reach <b>${VER.T.toFixed(1)}</b>. Shift budget toward the bottleneck and spend the full $3M.`;
+        const gap=VER.ceil-res.profit;
+        head('miss',`🚧 <b>${bn}</b> throttles the line to ${bc.toFixed(1)}/hr, so <b>${Math.round(res.lost)} customers drove away</b>. You earned <b>$${res.profit.toFixed(0)}</b> — that's <b>$${gap.toFixed(0)} short</b> of the $${VER.ceil} ceiling. Feed the bottleneck.`);
+      }
+    }else{
+      const rec=record(res,'run');
+      state.ch2Attempts.push(rec);
+      if(!state.best2||rec.profit>state.best2.profit)state.best2=rec;
+      state.ch2Done=true;setDone(2);state.times.tab3=new Date();
+      const n=state.ch2Attempts.length,left=MAX_ATTEMPTS-n;
+      banner.className='banner win show';
+      banner.innerHTML=`✅ Attempt <b>${n}/${MAX_ATTEMPTS}</b> recorded.`+(left>0?` ${left} left — keep trying or save your report.`:` <b>No attempts left</b> — save your results.`);
+      const ideal=state.best1?state.best1:{profit:VER.ceil,lead:19,cars:VER.cars};
+      const tax=ideal.profit-res.profit, dl=res.lead-ideal.lead, pct=(res.profit/VER.ceil*100).toFixed(0);
+      const vs=tax>=0?`<b>$${tax.toFixed(0)} below</b> your Challenge 1 result`:`<b>$${(-tax).toFixed(0)} above</b> your Challenge 1 result (variability helped here, worth asking why)`;
+      head(tax>=0?'miss':'win',`🌪️ <b>This attempt</b> (avg of ${res.nrep} days): <b>${res.done.toFixed(1)} cars, $${res.profit.toFixed(0)}</b> = ${pct}% of ceiling. That is ${vs}, with throughput time <b>${sNum(dl)} min</b> per car. The bottleneck now <b>moves</b>, so balancing alone no longer protects you.`);
+      updateAttempts();
+      renderTax();
+      maybeUnlockSave();
+      persist();
+    }
+  }
+
+  function sameAsTried(){return isVar&&state.ch2Attempts.find(a=>a.inv.every((x,i)=>Math.abs(x-inv[i])<1e-9));}
+  function blockRun(){if(overBudget()){const w=q('warn');w.classList.remove('show');void w.offsetWidth;w.classList.add('show');return true;}
+    if(isVar&&attemptsLeft()<=0&&!sameAsTried()){const sp=q('saveprompt');sp.classList.add('show');sp.scrollIntoView({behavior:'smooth',block:'center'});return true;}
+    return false;}
+  function runDay(){if(blockRun())return;
+    stop();clearFlow();const res=evaluate(inv,ch);
+    q('run').disabled=true;q('fast').disabled=true;
+    const F=res.frames;let idx=0,lastDone=0;const spd=()=>+q('spd').value;
+    anim=setInterval(()=>{idx=Math.min(idx+Math.max(1,Math.round(spd()/6)),F.t.length-1);drawFrame(res,idx);
+      let dd=F.done[idx]-lastDone;lastDone=F.done[idx];
+      for(let s2=0;s2<Math.min(dd,3);s2++)spawnFlow();
+      if(idx>=F.t.length-1){stop();clockSet(480);showFinal(res);checkWin(res);setButtons();}},28);}
+  function runFast(){if(blockRun())return;
+    stop();clearFlow();const res=evaluate(inv,ch);
+    drawFrame(res,res.frames.t.length-1);clockSet(480);showFinal(res);checkWin(res);setButtons();}
+  function stop(){if(anim){clearInterval(anim);anim=null;}}
+  q('run').addEventListener('click',runDay);
+  q('fast').addEventListener('click',runFast);
+  if(isVar)q('gotoSave').addEventListener('click',()=>{maybeUnlockSave();showTab(3);});
+
+  function apply(){ refresh(true); setRefs(); c1.update(); if(isVar)updateAttempts(); }
+  refresh(true);
+  return {stop, apply};
+}
+function applyVersion(d){VER=makeVersion(d);CH[1].apply();CH[2].apply();}
+
+/* ============ SAVE TAB ============ */
+function maybeUnlockSave(){if(state.ch1Done&&state.ch2Done)setLock(3,false);}
+function fmtMoney(x){return(x>=0?'$':'-$')+Math.abs(x).toFixed(0);}
+/* climax: the cost of variability (Ch1 ideal vs Ch2) */
+function renderTax(){
+  const el=document.getElementById('c2_tax');if(!el)return;
+  const a=state.best1, b=state.best2;
+  if(!a||!b){el.classList.remove('show');return;}
+  const dp=b.profit-a.profit, dl=b.lead-a.lead, dc=b.cars-a.cars;
+  const cls=(x,goodIfUp)=>(x>=0)===goodIfUp?'td up':'td';
+  const pctOf=(x,base)=>base?' ('+sNum(x/base*100)+'%)':'';
+  el.className='tax show';
+  el.innerHTML=
+    `<div class="tax-h">💸 The cost of variability <span class="tax-sub">your best attempt so far (avg of ${b.nrep||NREP} days) vs Challenge 1</span></div>`+
+    `<div class="tax-row"><span class="tk">Profit</span><span class="tv"><s>$${a.profit.toFixed(0)}</s> &rarr; <b>$${b.profit.toFixed(0)}</b></span><span class="${cls(dp,true)}">${sMoney(dp)}${pctOf(dp,a.profit)}</span></div>`+
+    `<div class="tax-row"><span class="tk">Throughput time</span><span class="tv"><s>${a.lead.toFixed(0)} min</s> &rarr; <b>${b.lead.toFixed(0)} min</b></span><span class="${cls(dl,false)}">${sNum(dl)} min${pctOf(dl,a.lead)}</span></div>`+
+    `<div class="tax-row"><span class="tk">Cars washed</span><span class="tv"><s>${a.cars}</s> &rarr; <b>${b.cars.toFixed(1)}</b></span><span class="${cls(dc,true)}">${sNum(dc,1)} cars</span></div>`+
+    `<div class="tax-row"><span class="tk">% of ceiling</span><span class="tv"><s>${(a.profit/VER.ceil*100).toFixed(0)}%</s> &rarr; <b>${(b.profit/VER.ceil*100).toFixed(0)}%</b></span><span class="td muted">ceiling $${VER.ceil}</span></div>`+
+    (dp<0
+      ?`<div class="tax-note">Same line, same $3M. Variability alone erased <b>$${(-dp).toFixed(0)}</b> of profit and changed throughput time by <b>${sNum(dl)} min</b> per car, and the bottleneck no longer sits still. <i>This is why operations manages variability, not just capacity.</i></div>`
+      :`<div class="tax-note">Your best variable-world allocation <b>matched or beat</b> Challenge 1 by <b>$${dp.toFixed(0)}</b>. Same line, same $3M: what about the distributions made that possible?</div>`);
+}
+function fillCombined(){
+  const c1=state.best1||state.results[1], c2=state.best2||state.results[2];
+  const v=(rec,fn)=>rec?fn(rec):'—';
+  const metrics=[
+    ['Investment  V / W / D ($M)', r=>`${r.inv[0].toFixed(2)} / ${r.inv[1].toFixed(2)} / ${r.inv[2].toFixed(2)}`],
+    ['Capacity  V / W / D (cars/hr)', r=>r.caps.map(c=>c.toFixed(1)).join(' / ')],
+    ['Cars washed', r=>`<b>${r.ch===2?r.cars.toFixed(1):r.cars}</b>`],
+    ['Profit', r=>`<b>${fmtMoney(r.profit)}</b>`],
+    ['% of profit ceiling ($'+VER.ceil+')', r=>`<b>${(r.profit/VER.ceil*100).toFixed(1)}%</b>`],
+    ['Profit range across days', r=>r.ch===2?`${fmtMoney(r.pmin)} to ${fmtMoney(r.pmax)}`:'n/a (no variation)'],
+    ['Throughput (cars/hr)', r=>r.thr.toFixed(1)],
+    ['Cycle time (min)', r=>r.cyc.toFixed(2)],
+    ['Throughput time (min)', r=>r.lead.toFixed(1)],
+    ['WIP (cars)', r=>r.wip.toFixed(1)],
+    ['Utilization  V / W / D', r=>r.util.map(u=>u.toFixed(0)+'%').join(' / ')],
+    ['Bottleneck', r=>r.bn],
+    ['Lost (balked)', r=>Math.round(r.lost)]
+  ];
+  let html='<thead><tr><th>Metric</th><th>Challenge 1<br><span style="font-weight:500;font-size:11px">No variation</span></th>'
+    +'<th>Challenge 2<br><span style="font-weight:500;font-size:11px">With variation · avg of '+NREP+' days</span></th></tr></thead><tbody>';
+  metrics.forEach(([label,fn])=>{html+=`<tr><td>${label}</td><td>${v(c1,fn)}</td><td>${v(c2,fn)}</td></tr>`;});
+  html+='</tbody>';
+  document.getElementById('sumBoth').innerHTML=html;
+}
+function refreshSave(){
+  const ready=state.ch1Done&&state.ch2Done;
+  document.getElementById('saveLocked').style.display=ready?'none':'block';
+  document.getElementById('saveReady').style.display=ready?'block':'none';
+  if(ready){
+    const s=state.student||{name:'—',roll:'—',section:'—'};
+    const ft=d=>d?d.toLocaleString():'—';
+    document.getElementById('sDetails').innerHTML=
+      `<div><span>Name</span><b>${esc(s.name)}</b></div><div><span>Roll No</span><b>${esc(s.roll)}</b></div>`+
+      `<div><span>Section</span><b>${esc(s.section)}</b></div>`+
+      (state.restores?`<div><span>Session restored</span><b>${state.restores}×</b></div>`:'')+
+      `<div><span>Version</span><b>${VER.d} (demand ${VER.T.toFixed(1)}/hr)</b></div>`+
+      `<div><span>Ch2 attempts</span><b>${state.ch2Attempts.length} / ${MAX_ATTEMPTS}</b></div>`+
+      `<div><span>Tab 1 · Welcome</span><b>${ft(state.times.tab1)}</b></div>`+
+      `<div><span>Tab 2 · Challenge 1</span><b>${ft(state.times.tab2)}</b></div>`+
+      `<div><span>Tab 3 · Challenge 2</span><b>${ft(state.times.tab3)}</b></div>`;
+    fillCombined();
+    const h=document.getElementById('sumh');
+    if(h)h.textContent=`Results — Challenge 1 vs Challenge 2 (Ch1 best · Ch2 best of ${state.ch2Attempts.length})`;
+  }
+}
+
+/* PDF */
+function downloadPDF(){
+  const msg=document.getElementById('saveMsg');
+  if(state.saved){return;}
+  const s=state.student||{};
+  const name=s.name||'', roll=s.roll||'', sec=s.section||'';
+  if(!name||!roll||!sec){msg.textContent='Your details are missing — please restart and enter them on the Welcome tab.';return;}
+  msg.textContent='';
+  const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:'pt',format:'a4'});
+  const W=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight(); let y=0;
+  const ink=[21,23,31], ind=[79,70,229], mut=[107,114,128], red=[185,28,28];
+  const X=40, TW=W-80;
+  // header band
+  doc.setFillColor(...ind);doc.rect(0,0,W,46,'F');
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(18);
+  doc.text('Capacity Simulation Exercise — Results',X,30);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(225,225,250);
+  doc.text(new Date().toLocaleString(),W-X,30,{align:'right'});
+  y=66;
+  // identity box
+  doc.setDrawColor(225,228,238);doc.setFillColor(248,249,253);doc.roundedRect(X,y,TW,52,8,8,'FD');
+  doc.setTextColor(...ink);doc.setFont('helvetica','bold');doc.setFontSize(11);
+  doc.text('Name:  '+name,X+16,y+20);doc.text('Roll No:  '+roll,X+16,y+38);
+  doc.text('Section:  '+sec,W/2+10,y+20);
+  doc.setFont('helvetica','normal');doc.setTextColor(...mut);doc.setFontSize(9);
+  doc.text('Version '+VER.d+' (demand '+VER.T.toFixed(1)+'/hr, ceiling $'+VER.ceil+') · Ch2 attempts '+state.ch2Attempts.length+'/'+MAX_ATTEMPTS+(state.restores?' · session restored '+state.restores+'x':''),W/2+10,y+38);
+  y+=70;
+
+  function sect(title,color){if(y>PH-90){doc.addPage();y=46;}
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...(color||ind));doc.text(title,X,y);y+=7;
+    doc.setDrawColor(...(color||ind));doc.setLineWidth(1);doc.line(X,y,W-X,y);doc.setLineWidth(.5);y+=16;}
+  function grid(cols,rows,opt){opt=opt||{};
+    const wsum=cols.reduce((a,c)=>a+c.w,0),w=cols.map(c=>c.w/wsum*TW),rh=opt.rh||17,hh=20;
+    const header=()=>{doc.setFillColor(...(opt.head||ind));doc.rect(X,y,TW,hh,'F');
+      doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8.5);let cx=X;
+      cols.forEach((c,i)=>{const al=c.align||'left',tx=al==='right'?cx+w[i]-5:al==='center'?cx+w[i]/2:cx+5;
+        doc.text(String(c.label),tx,y+13,{align:al});cx+=w[i];});y+=hh;};
+    if(y+hh+rh>PH-40){doc.addPage();y=46;} header();
+    rows.forEach((r,ri)=>{if(y+rh>PH-40){doc.addPage();y=46;header();}
+      const hl=opt.highlight===ri;
+      if(hl)doc.setFillColor(212,245,228);else doc.setFillColor(ri%2?247:255,ri%2?248:255,ri%2?252:255);
+      doc.rect(X,y,TW,rh,'F');
+      doc.setTextColor(...ink);doc.setFont('helvetica',hl?'bold':'normal');doc.setFontSize(8.7);let cx=X;
+      r.forEach((cell,i)=>{const al=cols[i].align||'left',tx=al==='right'?cx+w[i]-5:al==='center'?cx+w[i]/2:cx+5;
+        doc.text(String(cell),tx,y+12,{align:al});cx+=w[i];});y+=rh;});
+    doc.setDrawColor(222,226,236);doc.rect(X,y-rows.length*rh-hh,TW,rows.length*rh+hh);
+    y+=14;}
+  function charts(rec){if(!rec||!rec.charts)return;if(y>PH-150){doc.addPage();y=46;}
+    const iw=(TW-14)/2,ih=iw*0.5;
+    try{doc.addImage(rec.charts.cumul,'PNG',X,y,iw,ih);doc.addImage(rec.charts.util,'PNG',X+iw+14,y,iw,ih);}catch(e){}
+    y+=ih+16;}
+
+  // ---- Timeline (completion timestamps) ----
+  const ft=d=>d?d.toLocaleString():'—';
+  const dur=(a,b)=>(a&&b)?(Math.max(0,Math.round((b-a)/60000))+' min'):'—';
+  sect('Completion timeline');
+  grid([{label:'Stage',w:60},{label:'Completed at',w:60,align:'left'},{label:'Elapsed',w:24,align:'right'}],[
+    ['Tab 1 — Welcome (login)',ft(state.times.tab1),'—'],
+    ['Tab 2 — Challenge 1 solved',ft(state.times.tab2),dur(state.times.tab1,state.times.tab2)],
+    ['Tab 3 — Challenge 2 (last attempt)',ft(state.times.tab3),dur(state.times.tab2,state.times.tab3)]]);
+
+  // ---- Challenge 1 (best run) ----
+  const c1=state.best1||state.results[1];
+  sect('Challenge 1 — No variation  (best run)');
+  if(c1){grid([{label:'Metric',w:62},{label:'Value',w:38,align:'right'}],[
+      ['Investment  V / W / D ($M)',`${c1.inv[0].toFixed(2)} / ${c1.inv[1].toFixed(2)} / ${c1.inv[2].toFixed(2)}`],
+      ['Capacity  V / W / D (cars/hr)',c1.caps.map(c=>c.toFixed(1)).join(' / ')],
+      ['Cars washed',String(c1.cars)],['Profit',fmtMoney(c1.profit)],['% of profit ceiling',(c1.profit/VER.ceil*100).toFixed(1)+'%'],
+      ['Throughput (cars/hr)',c1.thr.toFixed(1)],['Cycle time (min)',c1.cyc.toFixed(2)],
+      ['Throughput time (min)',c1.lead.toFixed(1)],['WIP (cars)',c1.wip.toFixed(1)],
+      ['Utilization  V / W / D',c1.util.map(u=>u.toFixed(0)+'%').join(' / ')],
+      ['Bottleneck',c1.bn],['Lost (balked)',String(Math.round(c1.lost))]]);
+    charts(c1);
+  }else doc.text('No Challenge 1 run recorded.',X,y),y+=18;
+
+  // ---- Challenge 2 (all iterations, best first) ----
+  const atts=[...state.ch2Attempts].sort((a,b)=>b.profit-a.profit);
+  sect('Challenge 2 — With variation  ('+atts.length+' attempt'+(atts.length===1?'':'s')+', best on top)');
+  if(atts.length){
+    grid([{label:'#',w:12,align:'center'},{label:'Spend  V / W / D ($M)',w:66,align:'center'},
+      {label:'Cars',w:24,align:'right'},{label:'Avg profit',w:34,align:'right'},{label:'% ceil',w:26,align:'right'},
+      {label:'Day range',w:48,align:'right'},{label:'Thru time',w:32,align:'right'},{label:'Bottleneck',w:36,align:'left'}],
+      atts.map((r,i)=>[String(i+1),`${r.inv[0].toFixed(2)} / ${r.inv[1].toFixed(2)} / ${r.inv[2].toFixed(2)}`,
+        r.cars.toFixed(1),fmtMoney(r.profit),r.pct.toFixed(1)+'%',fmtMoney(r.pmin)+' to '+fmtMoney(r.pmax),r.lead.toFixed(1),
+        r.bn]),{highlight:0});
+    doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(...mut);
+    doc.text('Each attempt is scored on the average of the same '+NREP+' simulated days. Row 1 (highlighted) is the best by average profit.',X,y);y+=16;
+    charts(state.best2);
+  }else doc.text('No Challenge 2 attempts recorded.',X,y),y+=18;
+
+  // ---- cost of variability ----
+  const a=state.best1||state.results[1], b=state.best2||state.results[2];
+  if(a&&b){sect('The cost of variability  (Ch1 ideal vs best Ch2)',red);
+    grid([{label:'Metric',w:42},{label:'Ch1 ideal',w:26,align:'right'},{label:'Best Ch2',w:26,align:'right'},{label:'Impact',w:26,align:'right'}],[
+      ['Profit',fmtMoney(a.profit),fmtMoney(b.profit),sMoney(b.profit-a.profit).replace('\u2212','-')],
+      ['% of profit ceiling',(a.profit/VER.ceil*100).toFixed(1)+'%',(b.profit/VER.ceil*100).toFixed(1)+'%',sNum((b.profit-a.profit)/VER.ceil*100,1).replace('\u2212','-')+' pts'],
+      ['Throughput time (min)',a.lead.toFixed(1),b.lead.toFixed(1),sNum(b.lead-a.lead,1).replace('\u2212','-')],
+      ['Cars washed',String(a.cars),b.cars.toFixed(1),sNum(b.cars-a.cars,1).replace('\u2212','-')]],{head:red});}
+
+  // ---- reflection ----
+  const refl=document.getElementById('sReflect').value.trim();
+  sect('Reflection');
+  doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...ink);
+  doc.text(doc.splitTextToSize(refl||'(none provided)',TW),X,y);
+
+  const safe=roll.replace(/[^a-z0-9]/gi,'_');
+  doc.save(`CapacitySim_${safe||'results'}.pdf`);
+  msg.style.color=css('--ok');msg.textContent='PDF downloaded ✓ — '+atts.length+' Challenge-2 attempts included.';
+  lockAfterSave();
+}
+/* once saved: lock the challenges — reattempting needs the instructor override */
+function lockAfterSave(){
+  state.saved=true;gateReattempt();persist();
+  Object.values(CH).forEach(c=>c&&c.stop&&c.stop());
+  document.getElementById('pdfBtn').disabled=true;
+  document.getElementById('pdfBtn').textContent='✓ Saved (locked)';
+  document.getElementById('sReflect').readOnly=true;
+  document.getElementById('afterSave').style.display='block';
+}
+document.getElementById('pdfBtn').addEventListener('click',downloadPDF);
+
+/* ============ PERSISTENCE (closes the reload loophole) ============ */
+const STORE_KEY='capsim_session_v1';
+function persist(){
+  if(!state.student)return;
+  const lite=r=>r?Object.assign({},r,{charts:null}):r;      // keep the store small: chart images only for the best runs
+  const data={student:state.student,ver:VER.d,ch1Done:state.ch1Done,ch2Done:state.ch2Done,
+    best1:state.best1,best2:state.best2,results:{1:lite(state.results[1]),2:lite(state.results[2])},
+    ch2Attempts:state.ch2Attempts.map(lite),saved:state.saved,reattemptGated:state.reattemptGated,
+    restores:state.restores||0,reflect:(document.getElementById('sReflect')||{}).value||'',
+    times:{tab1:state.times.tab1&&+state.times.tab1,tab2:state.times.tab2&&+state.times.tab2,tab3:state.times.tab3&&+state.times.tab3}};
+  try{localStorage.setItem(STORE_KEY,JSON.stringify(data));}catch(e){}
+}
+function restore(){
+  let d=null;try{d=JSON.parse(localStorage.getItem(STORE_KEY)||'null');}catch(e){}
+  if(!d||!d.student)return false;
+  Object.assign(state,{student:d.student,pwOk:true,ch1Done:!!d.ch1Done,ch2Done:!!d.ch2Done,best1:d.best1,best2:d.best2,
+    results:d.results||{1:null,2:null},ch2Attempts:d.ch2Attempts||[],saved:!!d.saved,restores:(d.restores||0)+1});
+  ['tab1','tab2','tab3'].forEach(k=>state.times[k]=d.times&&d.times[k]?new Date(d.times[k]):null);
+  if(d.reflect)document.getElementById('sReflect').value=d.reflect;
+  applyVersion(d.ver);
+  setLock(0,true);setLock(1,false);
+  if(state.ch1Done){setLock(2,false);setDone(1);}
+  if(state.ch2Done){setDone(2);renderTax();}
+  maybeUnlockSave();
+  if(state.saved)lockAfterSave();else if(d.reattemptGated)gateReattempt();
+  persist();
+  showTab(state.saved||(d.reattemptGated)?3:(state.ch1Done?2:1));
+  return true;
+}
+/* instructor-only: wipe this browser's session so the next student can start */
+function resetSession(){
+  const pw=window.prompt('Instructor authorization required to reset this computer for a new student.\nEnter override password:');
+  if(pw==null)return;
+  if(!checkPw(pw,PW_INSTR_HASH)){window.alert('Incorrect authorization password.');return;}
+  try{localStorage.removeItem(STORE_KEY);}catch(e){}
+  location.reload();
+}
+document.getElementById('resetBtn').addEventListener('click',resetSession);
+document.getElementById('sReflect').addEventListener('input',()=>{if(!state.saved)persist();});
+
+/* ============ INIT ============ */
+CH[1]=buildChallenge(1);
+CH[2]=buildChallenge(2);
+if(!restore())pwInput.focus();
+</script>
+</body>
+</html>
